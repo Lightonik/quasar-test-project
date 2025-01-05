@@ -1,0 +1,100 @@
+<template>
+  <q-page padding>
+    <button
+    style="position: absolute; right: 10px;"
+    @click="counter++">
+      {{ counter }}
+    </button>
+    <input 
+      v-model="message" 
+      @keyup.esc="clearMessage"
+      @keyup.enter="alertMessage"
+      v-autofocus
+      :class = "{ 'error' : message.length > 12}"
+      ref="messageInput"
+      />
+
+    <button @click="clearMessage">Clear</button>
+
+    <div> 
+      {{ message.length }}
+    </div>
+
+    <h5 
+    v-if="message.length"
+      class = "border-gray"> 
+      {{ message }}
+    </h5>
+    <h6 v-else>Empty</h6>
+    <hr>
+    <p>Uppercase message: {{ messageUppercase }}</p>
+    <p>Lowercase message: {{ message | messageLowercase}}</p>
+
+  </q-page>
+</template>
+
+<script>
+import { colors } from 'quasar'
+
+export default {
+  data() {
+    return {
+      message: 'Hello World!',
+      counter: 0
+    }
+  },
+  computed: {
+    messageUppercase() {
+      this.counter++
+      return this.message.toUpperCase()
+    },
+    errorStyle() {
+      if (this.message.length > 12) {
+        return {
+          'color' : 'red',
+          'background' : 'pink'
+        }
+      }
+    }
+    
+  },
+  methods: {
+    clearMessage() {
+      this.message = ''
+    },
+    alertMessage() {
+      alert(this.message)
+    }
+  },
+  filters: {
+    messageLowercase(value) {
+      return value.toLowerCase()
+    }
+  },
+  directives: {
+    autofocus: {
+      inserted(el) {
+        el.focus()
+      }
+    }
+  },
+  mounted() {
+    this.$refs.messageInput.className = 'bg-green'
+  }
+  
+
+}
+</script>
+
+<style>
+  .border-gray {
+    border: 1px solid gray;
+  }
+  input, button {
+    font-size: 23px;
+  }
+  .error {
+    color: red;
+    background: pink;
+  }
+</style>
