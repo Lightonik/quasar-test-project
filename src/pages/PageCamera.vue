@@ -51,12 +51,20 @@
     <div class="row justify-center q-ma-md">
       <q-input
         v-model="post.location"
+        :loading="locationLoading"
         label="Location"
         class="col col-sm-6"
         dense
       >
         <template v-slot:append>
-          <q-btn round dense flat icon="place" />
+          <q-btn
+            v-if="!locationLoading && locationSupported"
+            @click="getLocation"
+            round
+            dense
+            flat
+            icon="place"
+          />
         </template>
       </q-input>
     </div>
@@ -81,7 +89,14 @@ export default {
       },
       imageCaptured: false,
       imageUpload: [],
-      hasCameraSupport: true
+      hasCameraSupport: true,
+      locationLoading: false
+    }
+  },
+  computed: {
+    locationSupported() {
+      if('geolocation' in navigator) return true
+      return false
     }
   },
   methods: {
@@ -94,54 +109,86 @@ export default {
         this.hasCameraSupport = false
       })
     },
-      captureImage (){
-        let video = this.$refs.video
-        let canvas = this.$refs.canvas
-        canvas.width = video.getBoundingClientRect().width
-        canvas.height = video.getBoundingClientRect().height
-        let context = canvas.getContext('2d')
-        context.drawImage(video, 0, 0, canvas.width, canvas.height)
-        this.imageCaptured = true
-        this.post.photo = this.dataURItoBlob(canvas.toDataURL())
-        this.disableCamera()
+    captureImage (){
+      let video = this.$refs.video
+      let canvas = this.$refs.canvas
+      canvas.width = video.getBoundingClientRect().width
+      canvas.height = video.getBoundingClientRect().height
+      let context = canvas.getContext('2d')
+      context.drawImage(video, 0, 0, canvas.width, canvas.height)
+      this.imageCaptured = true
+      this.post.photo = this.dataURItoBlob(canvas.toDataURL())
+      this.disableCamera()
     },
-      captureImageFallback(file){
-        this.post.photo = file
-  
-        let canvas = this.$refs.canvas
-        let context = canvas.getContext('2d')
+    captureImageFallback(file){
+      this.post.photo = file
 
-        var reader = new FileReader()
-        reader.onload = event => {
-          var img = new Image()
-          img.onload = () => {
-            canvas.width = img.width
-            canvas.height = img.height
-            context.drawImage(img,0,0)
-            this.imageCaptured = true
-          }
-          img.src = event.target.result
-        }
-        reader.readAsDataURL(file)
-      },
+      let canvas = this.$refs.canvas
+      let context = canvas.getContext('2d')
 
-      disableCamera(){
-        this.$refs.video.srcObject.getVideoTracks().forEach(track => {
-          track.stop()
-        })
-      },
-  
-      dataURItoBlob(dataURI) {
-        var byteString = atob(dataURI.split(',')[1]);
-        var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0]
-        var ab = new ArrayBuffer(byteString.length);
-        var ia = new Uint8Array(ab);
-        for (var i = 0; i < byteString.length; i++) {
-            ia[i] = byteString.charCodeAt(i);
+      var reader = new FileReader()
+      reader.onload = event => {
+        var img = new Image()
+        img.onload = () => {
+          canvas.width = img.width
+          canvas.height = img.height
+          context.drawImage(img,0,0)
+          this.imageCaptured = true
         }
-        var blob = new Blob([ab], {type: mimeString});
-        return blob;
+        img.src = event.target.result
       }
+      reader.readAsDataURL(file)
+    },
+    disableCamera(){
+      this.$refs.video.srcObject.getVideoTracks().forEach(track => {
+        track.stop()
+      })
+    },  
+    dataURItoBlob(dataURI) {
+      var byteString = atob(dataURI.split(',')[1]);
+      var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0]
+      var ab = new ArrayBuffer(byteString.length);
+      var ia = new Uint8Array(ab);
+      for (var i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
+        }
+      var blob = new Blob([ab], {type: mimeString});
+      return blob;
+    },
+    getLocation() {
+      this.locationLoading = true
+      navigator.geolocation.getCurrentPosition(position => {
+        this.getCity(position)        
+      }, err => {
+        //console.log('err ', err)
+        this.locationError()
+      }, { timeout: 7000})
+    },
+    getCity(position) {
+      //  let apiUrl = `https://geocode.xyz/${position.coords.latitude}, ${position.coords.longitude}?json=1`
+      let apiUrl = `https://geocode.maps.co/reverse?lat=${position.coords.latitude}&lon=${position.coords.longitude}&api_key=6794c909b10e5974296822zub66e77d`
+      this.$axios.get(apiUrl).then(result => {
+        console.log('result: ', result);
+        this.locationSuccess(result)
+      }).catch(err => {
+        //console.log('err: ',err);        
+        this.locationError()
+      })
+    },
+    locationSuccess(result) {
+      this.post.location = result.data.address.city
+      if(result.data.address.country) {
+        this.post.location += `, ${result.data.address.country}`
+      }
+      this.locationLoading = false
+    },
+    locationError() {
+      this.$q.dialog({
+        title: 'Error',
+        message: 'Geoposition error'
+      })
+      this.locationLoading = false
+    }
   },
   mounted() {
     this.initCamera()
